@@ -1,0 +1,15 @@
+About the hash algorithm
+
+https://ipcamtalk.com/threads/millions-of-xiongmai-video-surveillance-devices-can-be-hacked-via-cloud-feature-xmeye-p2p-cloud.32843/
+https://ipcamtalk.com/threads/millions-of-xiongmai-video-surveillance-devices-can-be-hacked-via-cloud-feature-xmeye-p2p-cloud.32843/#post-304804
+
+
+fenderman, Oct 11, 2018
+
+An interesting tidbit from the SEC Consult article.
+"Note: The password hash of the “default” user is “OxhlwSG8” (stored in /mtd/Config/Account1).
+The hash algorithm was reverse engineered before and is implemented on GitHub ( https://github.com/tothi/pwn-hisilicon-dvr/blob/master/sofia_hash.py ).
+Basically, it is a result of MD5(password) and compressed even further.
+For complex passwords it should be more efficient to find a hash collision than to crack the password.
+Interestingly, the same hash algorithm is used in products from Dahua Technology.
+Possibly Xiongmai copied from Dahua or the hash algorithm is part of the Huawei HiSilicon SoC SDK both vendors use?"

