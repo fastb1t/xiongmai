@@ -21,7 +21,7 @@ def sofia_hash(msg):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("How to use: python3 sofia_hash.py <hash>\n")
+        print("How to use: python3 sofia_hash.py <text>\n")
         sys.exit(1)
 
     print(sofia_hash(sys.argv[1]))
